@@ -1,7 +1,6 @@
 import time
 import telegram_send_msg
-import swap
-import pricee
+import requests
 
 token_bilgi = {
     'utk': {
@@ -69,6 +68,77 @@ token_bilgi = {
         'url_api_vital': 'https://api.elrond.com/tokens/VITAL-ab7917/transfers'}
 
 }
+def egld_price():
+    egld_price_api= 'https://api.elrond.com/tokens?identifier=WEGLD-bd4d79'
+    egld_price_cek= requests.get(egld_price_api)
+    egld_price_cek= egld_price_cek.json()
+    egld_prce = round(float(egld_price_cek[0]['price']),2)
+    return egld_prce
+
+def token_price(token_price):
+    response1 = requests.get(token_price)
+    response1 = response1.json()
+    price = round(float(response1['price']), 6)
+    return price
+
+def whale_alert(url_api):
+    response = requests.get(url_api)
+    response = response.json()
+    transfer = response[0]
+    if 'originalTxHash' in transfer:
+        transfer = response[0]['originalTxHash']
+        api = 'https://api.elrond.com/transactions/' + transfer
+    else:
+        transfer = response[0]['txHash']
+        api = 'https://api.elrond.com/transactions/' + transfer
+    response1 = requests.get(api)
+    response1 = response1.json()
+    if 'function' in response1:
+        func = response1['function']
+
+        if func in 'multiPairSwap':
+            for i in range(len(response1['operations'])):
+                if 'identifier' in response1['operations'][i]:
+                    decimals = response1['operations'][i]['decimals']
+                    decimals1 = response1['operations'][-1 - i]['decimals']
+                    token_name_sold = response1['operations'][i]['identifier'].split('-')[0]
+                    token_name_bought = response1['operations'][-1-i]['identifier'].split('-')[0]
+                    number_token_sold = round(float(response1['operations'][i]['value']) / 10 ** decimals,2)
+                    number_token_bought =round(float(response1['operations'][-1-i]['value'])/10**decimals1,2)
+                    if token_name_bought != token_name_sold:
+                        return "Spent: {} {} \nGot: {} {} ".format(number_token_sold, token_name_sold, number_token_bought,token_name_bought)
+                    else:
+                        return None
+        elif func in 'swapTokensFixedInput':
+            if 'identifier' not in response1['operations'][0]:
+                i = 1
+            else:
+                i = 0
+            decimals = response1['operations'][i]['decimals']
+            decimals1 = response1['operations'][-1]['decimals']
+            list = [*(response1['action']['description']).split()]
+            token_name_sold = list[2]
+            token_name_bought = list[-1]
+            number_token_sold = round(float(response1['operations'][i]['value'])/10**decimals,2)
+            number_token_bought = round(float(response1['operations'][-1]['value'])/10**decimals1,2)
+            if token_name_bought != token_name_sold:
+                if number_token_sold != number_token_bought:
+                    return "Spent: {} {} \nGot: {} {}".format(number_token_sold, token_name_sold, number_token_bought,token_name_bought)
+            else:
+                  return None
+
+        elif func in 'swapTokensFixedOutput':
+            decimals = response1['operations'][0]['decimals']
+            decimals1 = response1['operations'][-2]['decimals']
+            list=[*(response1['action']['description']).split()]
+            token_name_sold = list[5]
+            token_name_bought = list[-1]
+            number_token_sold = round(float(response1['operations'][0]['value'])/10**decimals,2)
+            number_token_bought = round(float(response1['operations'][-2]['value'])/10**decimals1,2)
+            if token_name_bought != token_name_sold:
+                return "Spent: {} {} \nGot: {} {}".format(number_token_sold, token_name_sold, number_token_bought,token_name_bought)
+            else:
+                return None
 
 token_sayisi = len(token_bilgi.keys())
 kontrol = token_sayisi*['']
@@ -81,17 +151,17 @@ while True:
         api = token_parametre[2]
         try:
             if i < token_sayisi:
-                if swap.whale_alert(api) is not None:
-                    if kontrol[i] != swap.whale_alert(api):
-                        if token_name == swap.whale_alert(api).split()[2]:
-                            price_spent = pricee.token_price(price) * float(swap.whale_alert(api).split()[1])
-                            if price_spent >= pricee.egld_price():
-                                telegram_send_msg.send_msg('{} Sold!!!\n{}\n'.format(token_name, 6 * '\U0001F534') + swap.whale_alert(api) + '\nNew Price: {}$ \nEGLD Price: {}$'.format(price.token_price(price),price.egld_price()))
-                        elif token_name == swap.whale_alert(api).split()[-1]:
-                            price_got = pricee.token_price(price) * float(swap.whale_alert(api).split()[-2])
-                            if price_got >= pricee.egld_price():
-                                telegram_send_msg.send_msg('{} Bought!!!\n{}\n'.format(token_name, 6 * '\U0001F7E2') + swap.whale_alert(api)+'\nNew Price: {}$ \nEGLD Price: {}$'.format(price.token_price(price),price.egld_price()))
-                        kontrol[i] = swap.whale_alert(api)
+                if whale_alert(api) is not None:
+                    if kontrol[i] != whale_alert(api):
+                        if token_name == whale_alert(api).split()[2]:
+                            price_spent = token_price(price) * float(whale_alert(api).split()[1])
+                            if price_spent >= egld_price():
+                                telegram_send_msg.send_msg('{} Sold!!!\n{}\n'.format(token_name, 6 * '\U0001F534') + whale_alert(api) + '\nNew Price: {}$ \nEGLD Price: {}$'.format(token_price(price),egld_price()))
+                        elif token_name == whale_alert(api).split()[-1]:
+                            price_got = token_price(price) * float(whale_alert(api).split()[-2])
+                            if price_got >= egld_price():
+                                telegram_send_msg.send_msg('{} Bought!!!\n{}\n'.format(token_name, 6 * '\U0001F7E2') + whale_alert(api)+'\nNew Price: {}$ \nEGLD Price: {}$'.format(token_price(price),egld_price()))
+                        kontrol[i] = whale_alert(api)
                         print(kontrol)
         except:
             pass
