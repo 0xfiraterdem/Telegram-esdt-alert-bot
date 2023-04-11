@@ -150,19 +150,21 @@ while True:
         price = token_parametre[1]
         api = token_parametre[2]
         try:
-            if i < token_sayisi:
-                if whale_alert(api) is not None:
-                    if kontrol[i] != whale_alert(api):
-                        if token_name == whale_alert(api).split()[2]:
-                            price_spent = token_price(price) * float(whale_alert(api).split()[1])
-                            if price_spent >= egld_price():
-                                telegram_send_msg.send_msg('{} Sold!!!\n{}\n'.format(token_name, 6 * '\U0001F534') + whale_alert(api) + '\nNew Price: {}$ \nEGLD Price: {}$'.format(token_price(price),egld_price()))
-                        elif token_name == whale_alert(api).split()[-1]:
-                            price_got = token_price(price) * float(whale_alert(api).split()[-2])
-                            if price_got >= egld_price():
-                                telegram_send_msg.send_msg('{} Bought!!!\n{}\n'.format(token_name, 6 * '\U0001F7E2') + whale_alert(api)+'\nNew Price: {}$ \nEGLD Price: {}$'.format(token_price(price),egld_price()))
-                        kontrol[i] = whale_alert(api)
-                        print(kontrol)
+            if i >= token_sayisi or if whale_alert(api) is None:  continue
+            
+            if kontrol[i] == whale_alert(api): continue      
+                        
+            if token_name == whale_alert(api).split()[2]:
+                price_spent = token_price(price) * float(whale_alert(api).split()[1])
+                if price_spent >= egld_price():
+                    telegram_send_msg.send_msg('{} Sold!!!\n{}\n'.format(token_name, 6 * '\U0001F534') + whale_alert(api) + '\nNew Price: {}$ \nEGLD Price: {}$'.format(token_price(price),egld_price()))
+            elif token_name == whale_alert(api).split()[-1]:
+                price_got = token_price(price) * float(whale_alert(api).split()[-2])
+                if price_got >= egld_price():
+                    telegram_send_msg.send_msg('{} Bought!!!\n{}\n'.format(token_name, 6 * '\U0001F7E2') + whale_alert(api)+'\nNew Price: {}$ \nEGLD Price: {}$'.format(token_price(price),egld_price()))
+                  
+            kontrol[i] = whale_alert(api)
+               print(kontrol)
         except:
             pass
         i += 1
